@@ -30,6 +30,14 @@ public:
                        const DeleteRequest* request,
                        DeleteResponse* response) override;
 
+    grpc::Status Expire(grpc::ServerContext* context,
+                       const ExpireRequest* request,
+                       ExpireResponse* response) override;
+
+    grpc::Status TTL(grpc::ServerContext* context,
+                    const TTLRequest* request,
+                    TTLResponse* response) override;
+
 private:
     std::shared_ptr<Storage> storage_;
 };

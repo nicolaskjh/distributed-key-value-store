@@ -64,4 +64,34 @@ grpc::Status KeyValueStoreServiceImpl::Delete(grpc::ServerContext* context,
     return grpc::Status::OK;
 }
 
+grpc::Status KeyValueStoreServiceImpl::Expire(grpc::ServerContext* context,
+                                              const ExpireRequest* request,
+                                              ExpireResponse* response) {
+    if (request->key().empty()) {
+        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Key cannot be empty");
+    }
+
+    if (request->seconds() <= 0) {
+        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Seconds must be positive");
+    }
+
+    bool success = storage_->Expire(request->key(), request->seconds());
+    response->set_success(success);
+    
+    return grpc::Status::OK;
+}
+
+grpc::Status KeyValueStoreServiceImpl::TTL(grpc::ServerContext* context,
+                                           const TTLRequest* request,
+                                           TTLResponse* response) {
+    if (request->key().empty()) {
+        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Key cannot be empty");
+    }
+
+    int ttl = storage_->TTL(request->key());
+    response->set_seconds(ttl);
+    
+    return grpc::Status::OK;
+}
+
 } // namespace kvstore

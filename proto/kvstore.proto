@@ -15,6 +15,12 @@ service KeyValueStore {
   
   // Delete a key from the store
   rpc Delete(DeleteRequest) returns (DeleteResponse);
+  
+  // Set expiration time for a key
+  rpc Expire(ExpireRequest) returns (ExpireResponse);
+  
+  // Get remaining time to live for a key
+  rpc TTL(TTLRequest) returns (TTLResponse);
 }
 
 // Request and Response Messages for GET operation
@@ -54,4 +60,23 @@ message DeleteRequest {
 message DeleteResponse {
   bool success = 1;      // Whether the operation succeeded
   bool found = 2;        // Whether the key existed before deletion
+}
+
+// Request and Response Messages for EXPIRE operation
+message ExpireRequest {
+  string key = 1;
+  int32 seconds = 2;     // Expiration time in seconds
+}
+
+message ExpireResponse {
+  bool success = 1;      // Whether expiration was set
+}
+
+// Request and Response Messages for TTL operation
+message TTLRequest {
+  string key = 1;
+}
+
+message TTLResponse {
+  int32 seconds = 1;     // Seconds remaining (-1 = no expiration, -2 = key doesn't exist)
 }

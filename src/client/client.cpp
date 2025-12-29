@@ -3,6 +3,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
+#include <chrono>
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -82,6 +84,41 @@ public:
         }
     }
 
+    bool Expire(const std::string& key, int seconds) {
+        kvstore::ExpireRequest request;
+        request.set_key(key);
+        request.set_seconds(seconds);
+
+        kvstore::ExpireResponse response;
+        ClientContext context;
+
+        Status status = stub_->Expire(&context, request, &response);
+
+        if (status.ok()) {
+            return response.success();
+        } else {
+            std::cerr << "RPC failed: " << status.error_message() << std::endl;
+            return false;
+        }
+    }
+
+    int TTL(const std::string& key) {
+        kvstore::TTLRequest request;
+        request.set_key(key);
+
+        kvstore::TTLResponse response;
+        ClientContext context;
+
+        Status status = stub_->TTL(&context, request, &response);
+
+        if (status.ok()) {
+            return response.seconds();
+        } else {
+            std::cerr << "RPC failed: " << status.error_message() << std::endl;
+            return -2;
+        }
+    }
+
 private:
     std::unique_ptr<kvstore::KeyValueStore::Stub> stub_;
 };
@@ -121,6 +158,28 @@ int main(int argc, char** argv) {
     
     auto [found3, value3] = client.Get("age");
     std::cout << "GET age -> " << (found3 ? value3 : "NOT FOUND") << std::endl;
+
+    std::cout << "\nTesting TTL/EXPIRE..." << std::endl;
+    client.Set("temp_key", "temp_value");
+    std::cout << "SET temp_key=temp_value" << std::endl;
+    
+    bool expired = client.Expire("temp_key", 5);
+    std::cout << "EXPIRE temp_key 5s -> " << (expired ? "success" : "failed") << std::endl;
+    
+    int ttl = client.TTL("temp_key");
+    std::cout << "TTL temp_key -> " << ttl << " seconds" << std::endl;
+    
+    std::cout << "Waiting 3 seconds..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    
+    ttl = client.TTL("temp_key");
+    std::cout << "TTL temp_key -> " << ttl << " seconds" << std::endl;
+    
+    std::cout << "Waiting 3 more seconds..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    
+    auto [found_temp, value_temp] = client.Get("temp_key");
+    std::cout << "GET temp_key -> " << (found_temp ? value_temp : "EXPIRED/NOT FOUND") << std::endl;
 
     std::cout << "\nTests completed" << std::endl;
 
