@@ -7,8 +7,9 @@ namespace kvstore {
 
 Server::Server(const std::string& address)
     : server_address_(address),
-      storage_(std::make_shared<Storage>()),
+      storage_(std::make_shared<Storage>("kvstore.rdb", "kvstore.aof")),
       service_(std::make_unique<KeyValueStoreServiceImpl>(storage_)) {
+    storage_->StartBackgroundSnapshot(60);
 }
 
 Server::~Server() {

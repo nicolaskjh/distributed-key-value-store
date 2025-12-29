@@ -51,6 +51,10 @@ target_include_directories(proto_lib PUBLIC
 add_library(storage
     src/storage/storage.cpp
     src/storage/storage.h
+    src/storage/aof_persistence.cpp
+    src/storage/aof_persistence.h
+    src/storage/rdb_persistence.cpp
+    src/storage/rdb_persistence.h
 )
 
 target_include_directories(storage PUBLIC
@@ -109,7 +113,7 @@ target_include_directories(kvstore_server PRIVATE
 )
 
 add_executable(kvstore_client
-    src/client/client.cpp
+    tests/client_test.cpp
 )
 
 target_link_libraries(kvstore_client
@@ -119,6 +123,36 @@ target_link_libraries(kvstore_client
 )
 
 target_include_directories(kvstore_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${GENERATED_PROTOBUF_PATH}
+)
+
+add_executable(test_snapshot
+    tests/snapshot_test.cpp
+)
+
+target_link_libraries(test_snapshot
+    proto_lib
+    gRPC::grpc++
+    Threads::Threads
+)
+
+target_include_directories(test_snapshot PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${GENERATED_PROTOBUF_PATH}
+)
+
+add_executable(verify_persistence
+    tests/verify_persistence.cpp
+)
+
+target_link_libraries(verify_persistence
+    proto_lib
+    gRPC::grpc++
+    Threads::Threads
+)
+
+target_include_directories(verify_persistence PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${GENERATED_PROTOBUF_PATH}
 )
