@@ -3,37 +3,30 @@
 #include <grpcpp/grpcpp.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace kvstore {
 
 class KeyValueStoreServiceImpl;
 class Storage;
+class ReplicationManager;
 
-/**
- * gRPC server wrapper for the key-value store
- */
 class Server {
 public:
-    /**
-     * Create a server with the specified configuration
-     * @param address Server address (e.g., "0.0.0.0:50051")
-     */
-    explicit Server(const std::string& address);
+    explicit Server(const std::string& address, bool is_master = true);
     ~Server();
 
-    /**
-     * Start the server (blocking call)
-     */
     void Run();
-
-    /**
-     * Shutdown the server gracefully
-     */
     void Shutdown();
+    
+    void AddReplica(const std::string& replica_address);
+    void SetMaster(const std::string& master_address);
 
 private:
     std::string server_address_;
+    bool is_master_;
     std::shared_ptr<Storage> storage_;
+    std::shared_ptr<ReplicationManager> replication_manager_;
     std::unique_ptr<KeyValueStoreServiceImpl> service_;
     std::unique_ptr<grpc::Server> grpc_server_;
 };

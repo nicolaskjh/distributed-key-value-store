@@ -21,6 +21,12 @@ service KeyValueStore {
   
   // Get remaining time to live for a key
   rpc TTL(TTLRequest) returns (TTLResponse);
+  
+  // Replication: Replicate a command from master to replica
+  rpc ReplicateCommand(ReplicationCommand) returns (ReplicationResponse);
+  
+  // Replication: Stream commands from master to replica (for continuous sync)
+  rpc StreamReplication(ReplicationStreamRequest) returns (stream ReplicationCommand);
 }
 
 // Request and Response Messages for GET operation
@@ -79,4 +85,30 @@ message TTLRequest {
 
 message TTLResponse {
   int32 seconds = 1;     // Seconds remaining (-1 = no expiration, -2 = key doesn't exist)
+}
+
+// Replication Messages
+// Represents a single command to be replicated
+message ReplicationCommand {
+  enum CommandType {
+    SET = 0;
+    DELETE = 1;
+    EXPIRE = 2;
+  }
+  
+  CommandType type = 1;
+  string key = 2;
+  string value = 3;       // For SET commands
+  int32 seconds = 4;      // For EXPIRE commands
+  int64 sequence_id = 5;  // Monotonically increasing ID for ordering
+}
+
+message ReplicationResponse {
+  bool success = 1;
+  int64 last_applied_sequence = 2;  // Last sequence ID the replica has applied
+}
+
+message ReplicationStreamRequest {
+  int64 start_sequence = 1;  // Start streaming from this sequence ID
+  string replica_id = 2;      // Identifier for this replica
 }

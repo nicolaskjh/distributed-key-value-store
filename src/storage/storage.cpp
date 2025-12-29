@@ -1,6 +1,7 @@
 #include "storage.h"
-#include "aof_persistence.h"
-#include "rdb_persistence.h"
+#include "../persistence/aof_persistence.h"
+#include "../persistence/rdb_persistence.h"
+#include "../replication/replication_manager.h"
 #include <iostream>
 
 namespace kvstore {
@@ -40,8 +41,22 @@ Storage::~Storage() {
 void Storage::Set(const std::string& key, const std::string& value) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
     data_[key] = value;
+    lock.unlock();
     
-    // Log to AOF if enabled
+    if (aof_ && aof_->IsEnabled()) {
+        aof_->LogSet(key, value);
+    }
+    
+    if (replication_manager_ && replication_manager_->IsMaster()) {
+        replication_manager_->ReplicateSet(key, value);
+    }
+}
+
+void Storage::SetFromReplication(const std::string& key, const std::string& value) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    data_[key] = value;
+    lock.unlock();
+    
     if (aof_ && aof_->IsEnabled()) {
         aof_->LogSet(key, value);
     }
@@ -51,6 +66,7 @@ std::optional<std::string> Storage::Get(const std::string& key) const {
     std::shared_lock<std::shared_mutex> lock(mutex_);
     
     if (IsExpired(key)) {
+        lock.unlock();
         RemoveExpired(key);
         return std::nullopt;
     }
@@ -66,6 +82,7 @@ bool Storage::Contains(const std::string& key) const {
     std::shared_lock<std::shared_mutex> lock(mutex_);
     
     if (IsExpired(key)) {
+        lock.unlock();
         RemoveExpired(key);
         return false;
     }
@@ -77,8 +94,25 @@ bool Storage::Delete(const std::string& key) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
     expiration_.erase(key);
     bool found = data_.erase(key) > 0;
+    lock.unlock();
     
-    // Log to AOF if enabled and key was found
+    if (found && aof_ && aof_->IsEnabled()) {
+        aof_->LogDelete(key);
+    }
+    
+    if (found && replication_manager_ && replication_manager_->IsMaster()) {
+        replication_manager_->ReplicateDelete(key);
+    }
+    
+    return found;
+}
+
+bool Storage::DeleteFromReplication(const std::string& key) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    expiration_.erase(key);
+    bool found = data_.erase(key) > 0;
+    lock.unlock();
+    
     if (found && aof_ && aof_->IsEnabled()) {
         aof_->LogDelete(key);
     }
@@ -100,8 +134,30 @@ bool Storage::Expire(const std::string& key, int seconds) {
     
     auto expiry_time = steady_clock::now() + std::chrono::seconds(seconds);
     expiration_[key] = expiry_time;
+    lock.unlock();
     
-    // Log to AOF if enabled
+    if (aof_ && aof_->IsEnabled()) {
+        aof_->LogExpire(key, seconds);
+    }
+    
+    if (replication_manager_ && replication_manager_->IsMaster()) {
+        replication_manager_->ReplicateExpire(key, seconds);
+    }
+    
+    return true;
+}
+
+bool Storage::ExpireFromReplication(const std::string& key, int seconds) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    
+    if (data_.find(key) == data_.end()) {
+        return false;
+    }
+    
+    auto expiry_time = steady_clock::now() + std::chrono::seconds(seconds);
+    expiration_[key] = expiry_time;
+    lock.unlock();
+    
     if (aof_ && aof_->IsEnabled()) {
         aof_->LogExpire(key, seconds);
     }
@@ -181,6 +237,10 @@ void Storage::SnapshotLoop() {
             SaveSnapshot();
         }
     }
+}
+
+void Storage::SetReplicationManager(std::shared_ptr<ReplicationManager> replication_manager) {
+    replication_manager_ = replication_manager;
 }
 
 } // namespace kvstore

@@ -38,6 +38,14 @@ public:
                     const TTLRequest* request,
                     TTLResponse* response) override;
 
+    grpc::Status ReplicateCommand(grpc::ServerContext* context,
+                                 const ReplicationCommand* request,
+                                 ReplicationResponse* response) override;
+
+    grpc::Status StreamReplication(grpc::ServerContext* context,
+                                   const ReplicationStreamRequest* request,
+                                   grpc::ServerWriter<ReplicationCommand>* writer) override;
+
 private:
     std::shared_ptr<Storage> storage_;
 };

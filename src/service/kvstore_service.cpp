@@ -94,4 +94,36 @@ grpc::Status KeyValueStoreServiceImpl::TTL(grpc::ServerContext* context,
     return grpc::Status::OK;
 }
 
+grpc::Status KeyValueStoreServiceImpl::ReplicateCommand(grpc::ServerContext* context,
+                                                        const ReplicationCommand* request,
+                                                        ReplicationResponse* response) {
+    switch (request->type()) {
+        case ReplicationCommand::SET:
+            storage_->SetFromReplication(request->key(), request->value());
+            break;
+        
+        case ReplicationCommand::DELETE:
+            storage_->DeleteFromReplication(request->key());
+            break;
+        
+        case ReplicationCommand::EXPIRE:
+            storage_->ExpireFromReplication(request->key(), request->seconds());
+            break;
+        
+        default:
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Unknown command type");
+    }
+    
+    response->set_success(true);
+    response->set_last_applied_sequence(request->sequence_id());
+    
+    return grpc::Status::OK;
+}
+
+grpc::Status KeyValueStoreServiceImpl::StreamReplication(grpc::ServerContext* context,
+                                                         const ReplicationStreamRequest* request,
+                                                         grpc::ServerWriter<ReplicationCommand>* writer) {
+    return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Streaming replication not yet implemented");
+}
+
 } // namespace kvstore
