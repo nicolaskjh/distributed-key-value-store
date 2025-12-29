@@ -43,7 +43,7 @@ Metadata about a shard:
 struct ShardInfo {
     string shard_id;                  // "shard-1"
     string address;                   // "localhost:50051"
-    vector<string> replica_addresses; // Future use
+    vector<string> replica_addresses; // For replica support
     bool is_available;                // Health status
     uint64_t key_count;               // Stats
 };
@@ -185,14 +185,6 @@ src/sharding/
 tests/
 └── test_hash_ring.cpp   # Test program
 ```
-
-## Next Steps
-
-1. ✅ **Phase 5.1 Complete**: Consistent hash ring implemented
-2. 🔄 **Phase 5.2**: Routing layer (route requests to shards)
-3. ⏳ **Phase 5.3**: Shard management (add/remove coordination)
-4. ⏳ **Phase 5.4**: Data migration (move keys between shards)
-5. ⏳ **Phase 5.5**: Coordinator node (central routing)
 
 ## References
 

@@ -78,10 +78,18 @@ add_library(sharding
     src/sharding/hash_ring.cpp
     src/sharding/hash_ring.h
     src/sharding/shard_info.h
+    src/sharding/shard_router.cpp
+    src/sharding/shard_router.h
+)
+
+target_link_libraries(sharding
+    proto_lib
+    gRPC::grpc++
 )
 
 target_include_directories(sharding PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${GENERATED_PROTOBUF_PATH}
 )
 
 add_library(storage
@@ -175,6 +183,10 @@ target_include_directories(read_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${G
 add_executable(test_hash_ring tests/test_hash_ring.cpp)
 target_link_libraries(test_hash_ring sharding)
 target_include_directories(test_hash_ring PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+add_executable(test_shard_router tests/test_shard_router.cpp)
+target_link_libraries(test_shard_router sharding proto_lib gRPC::grpc++ Threads::Threads)
+target_include_directories(test_shard_router PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${GENERATED_PROTOBUF_PATH})
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")

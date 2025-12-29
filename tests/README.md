@@ -1,116 +1,153 @@
 # Test Suite
 
-Comprehensive test scripts for the distributed key-value store.
+Comprehensive tests for the distributed key-value store.
 
 ## Overview
 
-The test suite consists of:
-- **Shell scripts** - Automated test scenarios (`.sh` files)
-- **Test clients** - C++ executables used by the scripts (`.cpp` files)
+The test suite includes:
+- **Unit tests** - Standalone component tests (no server required)
+- **Integration tests** - End-to-end tests with running servers
+- **Test clients** - C++ executables for testing operations
 
-## Test Scripts
+## Running Tests
 
 ### Run All Tests
 
 ```bash
+cd tests
 ./test_all.sh
 ```
 
-Runs all test scripts sequentially and provides a summary.
+This runs all tests and provides a summary:
+- ✅ Unit tests (hash ring, shard router)
+- ✅ Integration tests (operations, persistence, replication, concurrency)
 
-### Individual Test Scripts
+### Run Individual Tests
 
-1. **test_basic_operations.sh** - Tests core operations
+Unit tests can be run directly from the build directory:
+
+```bash
+cd build
+
+# Unit tests (no server needed)
+./test_hash_ring       # Test consistent hashing distribution
+./test_shard_router    # Test routing logic and connection pooling
+```
+
+Integration tests require a running server. Example for basic operations:
+
+```bash
+# Terminal 1: Start server
+cd build
+./kvstore_server --master --address 0.0.0.0:50051
+
+# Terminal 2: Run test client
+cd build
+./kvstore_client localhost:50051
+```
+
+## Test Coverage
+
+### Unit Tests
+
+1. **Hash Ring** (`test_hash_ring`)
+   - Virtual node distribution across shards
+   - Key assignment consistency
+   - Dynamic shard addition/removal
+   - Key redistribution when topology changes
+
+2. **Shard Router** (`test_shard_router`)
+   - Routing logic and key distribution
+   - Connection pooling behavior
+   - Statistics tracking
+   - Consistent hashing verification
+
+### Integration Tests
+
+1. **Basic Operations**
    - SET, GET, DELETE, CONTAINS operations
-   - Basic client-server communication
+   - Client-server communication
    - Single node functionality
 
-2. **test_ttl_expiration.sh** - Tests time-to-live functionality
+2. **TTL & Expiration**
    - EXPIRE command
    - TTL query
    - Automatic expiration
    - Time-based cleanup
 
-3. **test_persistence.sh** - Tests data durability
+3. **Persistence (RDB + AOF)**
    - RDB snapshot creation (60 second interval)
    - AOF log writing
    - Server restart and recovery
    - Data integrity after restart
 
-4. **test_replication.sh** - Tests distributed replication
-   - Master-replica setup
+4. **Master-Replica Replication**
+   - Master-replica setup (1 master, 2 replicas)
    - Write to master
    - Read from replicas
    - Eventual consistency verification
 
-5. **test_concurrent_clients.sh** - Tests concurrent access
+5. **Concurrent Clients**
    - Multiple simultaneous clients
    - Thread-safe operations
    - Data consistency under load
 
 ## Test Client Executables
 
-The shell scripts use these C++ test clients (built automatically with the project):
+Built automatically with the project:
 
-- **kvstore_client** - Full-featured interactive test client
-  - Tests all operations: SET, GET, DELETE, CONTAINS, EXPIRE, TTL
-  - Used by most test scripts
+- **kvstore_client** - Full-featured test client
+  - Tests: SET, GET, DELETE, CONTAINS, EXPIRE, TTL
   - Source: `client_test.cpp`
 
-- **read_test** - Simple read-only client
+- **read_test** - Read-only client
   - Quick GET operations to verify data
   - Used for replication verification
   - Source: `read_test.cpp`
 
-- **snapshot_test** - Writes test data for persistence testing
+- **snapshot_test** - Persistence test helper
   - Creates sample dataset
-  - Used by persistence tests
   - Source: `snapshot_test.cpp`
 
-- **verify_persistence** - Verifies data after server restart
+- **verify_persistence** - Persistence verification
   - Checks data recovery from RDB/AOF
-  - Used by persistence tests
   - Source: `verify_persistence.cpp`
 
-## Running Tests
+- **test_hash_ring** - Hash ring unit test
+  - Source: `test_hash_ring.cpp`
 
-### From the tests directory:
-
-```bash
-cd tests
-
-# Run all tests
-./test_all.sh
-
-# Run individual tests
-./test_basic_operations.sh       # Core operations
-./test_ttl_expiration.sh          # TTL and expiration
-./test_persistence.sh             # Persistence and recovery (~70s)
-./test_replication.sh             # Master-replica replication
-./test_concurrent_clients.sh      # Concurrent access
-```
+- **test_shard_router** - Router unit test
+  - Source: `test_shard_router.cpp`
 
 ## Prerequisites
 
-1. **Build the project** (this creates all test executables):
+Build the project to create all test executables:
 
 ```bash
-cd /path/to/distributed-key-value-store
 mkdir -p build && cd build
 cmake ..
 make -j8
 ```
 
-2. **Make scripts executable** (if needed):
+## Test Details
 
-```bash
-cd ../tests
-chmod +x *.sh
-```
+### Persistence Test (~70 seconds)
+- Waits 65 seconds for RDB snapshot (60s interval + buffer)
+- Verifies both RDB and AOF recovery
+- Tests data integrity across restarts
+
+### Replication Test
+- Creates temporary `replica1/` and `replica2/` directories
+- Tests 3-node cluster (1 master, 2 replicas)
+- Verifies asynchronous replication
+
+### Concurrent Clients Test
+- Launches 5 simultaneous clients
+- Tests thread-safe concurrent access
+- Verifies no data corruption under load
 
 ## Notes
 
-- Scripts automatically clean up processes and temporary files
+- `test_all.sh` automatically cleans up processes and temporary files
 - Each test runs in isolation with fresh data
-- Replication test creates temporary `replica1/` and `replica2/` directories
-- Persistence test waits 65 seconds for RDB snapshot (configured at 60s interval)
+- Tests use ports 50051-50053 (ensure they're available)

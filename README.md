@@ -16,8 +16,9 @@ A high-performance, distributed key-value store implementation in C++ using gRPC
   - Master node handles all writes
   - Replica nodes receive updates asynchronously
   - Eventually consistent reads from replicas
-- **Consistent Hashing** - Foundation for sharding (Phase 5.1 ✅)
-  - Hash ring with virtual nodes for uniform distribution
+- **Sharding** - Horizontal partitioning for scalability
+  - **Consistent Hashing** - Hash ring with virtual nodes for uniform distribution
+  - **Routing Layer** - Client-side routing with connection pooling
   - Dynamic shard addition/removal with minimal rebalancing
   - O(log N) key lookup performance
 - **Hybrid Persistence** - Combines RDB snapshots and AOF for durability
@@ -98,21 +99,26 @@ distributed-key-value-store/
 │   │   └── storage.cpp/h       # Thread-safe storage with TTL
 │   ├── replication/            # Replication layer
 │   │   └── replication_manager.* # Master-replica replication
+│   ├── sharding/               # Sharding layer
+│   │   ├── shard_info.h        # Shard metadata
+│   │   ├── hash_ring.*         # Consistent hashing
+│   │   └── shard_router.*      # Client-side routing
 │   ├── service/                # gRPC service implementation
 │   ├── server/                 # Server wrapper
 │   └── main.cpp                # Server entry point
 ├── tests/                      # Test suite
 │   ├── test_all.sh             # Run all tests
-│   ├── test_basic_operations.sh    # Basic operations test
-│   ├── test_ttl_expiration.sh      # TTL/expiration test
-│   ├── test_persistence.sh         # Persistence test
-│   ├── test_replication.sh         # Replication test
-│   ├── test_concurrent_clients.sh  # Concurrency test
 │   ├── client_test.cpp         # Test client implementation
 │   ├── snapshot_test.cpp       # Snapshot test client
 │   ├── verify_persistence.cpp  # Persistence verification client
 │   ├── read_test.cpp           # Read-only test client
+│   ├── test_hash_ring.cpp      # Hash ring unit test
+│   ├── test_shard_router.cpp   # Shard router unit test
 │   └── README.md               # Test documentation
+├── docs/                       # Documentation
+│   ├── HASH_RING.md            # Consistent hashing details
+│   ├── SHARD_ROUTER.md         # Routing layer details
+│   └── REPLICATION_ARCHITECTURE.md # Replication details
 └── CMakeLists.txt              # Build configuration
 ```
 
@@ -189,22 +195,113 @@ Operations are assigned sequence IDs by master to ensure consistent ordering acr
 
 **Consistency Model:** Eventual consistency - replicas may lag behind master by network latency + processing time.
 
+## Sharding Architecture
+
+Horizontal partitioning of data across multiple shards for scalability.
+
+### Architecture
+
+```
+                    ┌─────────────┐
+                    │   CLIENT    │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────────────┐
+                    │   ShardRouter       │
+                    │  ┌──────────────┐   │
+                    │  │  Hash Ring   │   │  ← Determines shard
+                    │  │  (150 vnodes)│   │     for each key
+                    │  └──────────────┘   │
+                    │  ┌──────────────┐   │
+                    │  │ Connection   │   │  ← Pools gRPC
+                    │  │    Pool      │   │     connections
+                    │  └──────────────┘   │
+                    └──┬──────┬──────┬────┘
+                       │      │      │
+            ┌──────────┘      │      └──────────┐
+            │                 │                 │
+       ┌────▼────┐       ┌────▼────┐      ┌────▼────┐
+       │ SHARD-1 │       │ SHARD-2 │      │ SHARD-3 │
+       │(50051)  │       │(50052)  │      │(50053)  │
+       │ Keys:   │       │ Keys:   │      │ Keys:   │
+       │ user:*  │       │ order:* │      │ prod:*  │
+       └─────────┘       └─────────┘      └─────────┘
+```
+
+### Components
+
+**Hash Ring:**
+- Consistent hashing with virtual nodes (150 per shard)
+- FNV-1a hash function for uniform distribution
+- O(log N) lookup using binary search
+- Dynamic shard addition/removal
+- See [docs/HASH_RING.md](docs/HASH_RING.md)
+
+**Shard Router:**
+- Client-side routing based on hash ring
+- Connection pooling for performance (reuse gRPC stubs)
+- Statistics tracking (per-shard request counts, success/failure rates)
+- Thread-safe for concurrent clients
+- Transparent API matching single-node interface
+- See [docs/SHARD_ROUTER.md](docs/SHARD_ROUTER.md)
+
+### Example Usage
+
+```cpp
+// Create hash ring with 3 shards
+auto hash_ring = std::make_shared<HashRing>(150);
+hash_ring->AddShard("shard-1", "localhost:50051");
+hash_ring->AddShard("shard-2", "localhost:50052");
+hash_ring->AddShard("shard-3", "localhost:50053");
+
+// Create router
+ShardRouter router(hash_ring);
+
+// Use like single-node store
+router.Set("user:123", "John Doe");     // → shard-1
+router.Set("order:456", "Order data");  // → shard-2
+auto value = router.Get("user:123");    // → shard-1 (consistent!)
+
+// Monitor distribution
+auto stats = router.GetStats();
+// Shows requests per shard, success/failure rates
+```
+
+### Testing
+
+```bash
+# Test hash ring distribution
+./build/test_hash_ring
+
+# Test routing logic (shards don't need to be running)
+./build/test_shard_router
+```
+
 ## Testing
 
-The project includes a comprehensive test suite in the `tests/` directory:
+The project includes a comprehensive test suite with unit and integration tests:
 
 ```bash
 cd tests
-
-# Run all tests
 ./test_all.sh
+```
 
-# Or run individual tests
-./test_basic_operations.sh      # Core operations (SET, GET, DELETE, CONTAINS)
-./test_ttl_expiration.sh         # TTL and expiration functionality
-./test_persistence.sh            # RDB + AOF persistence and recovery
-./test_replication.sh            # Master-replica replication
-./test_concurrent_clients.sh     # Concurrent client access
+This runs all tests including:
+- **Unit tests**: Hash ring, shard router (no server required)
+- **Integration tests**: Basic operations, TTL, persistence, replication, concurrency
+
+Individual tests can be run directly:
+
+```bash
+cd build
+
+# Unit tests
+./test_hash_ring       # Test consistent hashing
+./test_shard_router    # Test routing logic
+
+# Integration tests (start server first)
+./kvstore_server --master --address 0.0.0.0:50051  # Terminal 1
+./kvstore_client localhost:50051                    # Terminal 2
 ```
 
 See [tests/README.md](tests/README.md) for detailed test documentation.
