@@ -4,12 +4,12 @@ A high-performance, distributed key-value store implementation in C++ using gRPC
 
 ## Features
 
-- ✅ **GET** - Retrieve a value by key
-- ✅ **SET** - Store a key-value pair
-- ✅ **CONTAINS** - Check if a key exists
-- ✅ **DELETE** - Remove a key-value pair
-- ✅ **Thread-Safe** - Concurrent access support
-- ✅ **gRPC** - Fast RPC-based communication
+- **GET** - Retrieve a value by key
+- **SET** - Store a key-value pair
+- **CONTAINS** - Check if a key exists
+- **DELETE** - Remove a key-value pair
+- **Thread-Safe** - Concurrent access support
+- **gRPC** - Fast RPC-based communication
 
 ## Building
 
