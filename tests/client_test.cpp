@@ -168,20 +168,28 @@ int main(int argc, char** argv) {
     
     int ttl = client.TTL("temp_key");
     std::cout << "TTL temp_key -> " << ttl << " seconds" << std::endl;
+    std::cout.flush();
     
     std::cout << "Waiting 3 seconds..." << std::endl;
+    std::cout.flush();
     std::this_thread::sleep_for(std::chrono::seconds(3));
     
     ttl = client.TTL("temp_key");
     std::cout << "TTL temp_key -> " << ttl << " seconds" << std::endl;
+    std::cout.flush();
     
     std::cout << "Waiting 3 more seconds..." << std::endl;
+    std::cout.flush();
     std::this_thread::sleep_for(std::chrono::seconds(3));
     
+    std::cout << "Checking if key expired..." << std::endl;
+    std::cout.flush();
     auto [found_temp, value_temp] = client.Get("temp_key");
     std::cout << "GET temp_key -> " << (found_temp ? value_temp : "EXPIRED/NOT FOUND") << std::endl;
+    std::cout.flush();
 
     std::cout << "\nTests completed" << std::endl;
+    std::cout.flush();
 
     return 0;
 }
