@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package kvstore;
+
+// Key-Value Store gRPC Service Definition
+service KeyValueStore {
+  // Get the value for a given key
+  rpc Get(GetRequest) returns (GetResponse);
+  
+  // Set a key-value pair
+  rpc Set(SetRequest) returns (SetResponse);
+  
+  // Check if a key exists in the store
+  rpc Contains(ContainsRequest) returns (ContainsResponse);
+  
+  // Delete a key from the store
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+}
+
+// Request and Response Messages for GET operation
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  bool found = 1;        // Whether the key was found
+  string value = 2;      // The value (empty if not found)
+}
+
+// Request and Response Messages for SET operation
+message SetRequest {
+  string key = 1;
+  string value = 2;
+}
+
+message SetResponse {
+  bool success = 1;      // Whether the operation succeeded
+}
+
+// Request and Response Messages for CONTAINS operation
+message ContainsRequest {
+  string key = 1;
+}
+
+message ContainsResponse {
+  bool exists = 1;       // Whether the key exists in the store
+}
+
+// Request and Response Messages for DELETE operation
+message DeleteRequest {
+  string key = 1;
+}
+
+message DeleteResponse {
+  bool success = 1;      // Whether the operation succeeded
+  bool found = 2;        // Whether the key existed before deletion
+}
